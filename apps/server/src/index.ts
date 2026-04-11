@@ -1,58 +1,54 @@
 import express from "express";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@as-integrations/express5";
-import mongoose from "mongoose";
 import cors from "cors";
 import * as dotenv from "dotenv";
+import { toNodeHandler } from "better-auth/node";
+import { auth } from "./auth.js";
+import { connectDB } from "./db/connection.js";
+import { createContext, ApolloContext } from "./context.js";
+import { typeDefs } from "./schema/typeDefs.js";
+import { resolvers } from "./schema/resolvers/index.js";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Middleware
-app.use(cors());
+// 1. Better Auth Handler (MUST be before express.json())
+app.all("/api/auth/*", toNodeHandler(auth));
+
+// 2. Standard Middleware
+app.use(cors({
+  origin: [process.env.BETTER_AUTH_URL || "http://localhost:3000", "https://sandbox.embed.apollo.dev"],
+  credentials: true
+}));
 app.use(express.json());
 
-// GraphQL Schema Placeholder
-const typeDefs = `#graphql
-  type Query {
-    hello: String
-  }
-`;
-
-const resolvers = {
-  Query: {
-    hello: () => "Welcome to Eternal Echoes API!",
-  },
-};
-
-// Start Server Function
 const startServer = async () => {
   try {
-    // 1. Connect to MongoDB
-    console.log("Connecting to MongoDB Atlas...");
-    if (!process.env.MONGODB_URI) {
-      console.warn("⚠️ Missing MONGODB_URI. Skipping DB connection for now.");
-    } else {
-      await mongoose.connect(process.env.MONGODB_URI);
-      console.log("✅ Successfully connected to MongoDB Atlas!");
-    }
+    // 3. Connect DB
+    await connectDB();
 
-    // 2. Initialize Apollo Server
-    const apolloServer = new ApolloServer({
+    // 4. Apollo Server
+    const server = new ApolloServer<ApolloContext>({
       typeDefs,
       resolvers,
     });
-    await apolloServer.start();
+    await server.start();
 
-    // 3. Mount Apollo Server at /graphql
-    app.use("/graphql", expressMiddleware(apolloServer));
+    // 5. Mount Apollo with Context
+    app.use(
+      "/graphql",
+      expressMiddleware(server, {
+        context: createContext,
+      })
+    );
 
-    // 4. Start listening
     app.listen(PORT, () => {
-      console.log(`🚀 Backend Server ready at http://localhost:${PORT}`);
-      console.log(`🚀 GraphQL API ready at http://localhost:${PORT}/graphql`);
+      console.log(`🚀 Server ready at http://localhost:${PORT}`);
+      console.log(`🚀 GraphQL ready at http://localhost:${PORT}/graphql`);
+      console.log(`🚀 Auth ready at http://localhost:${PORT}/api/auth`);
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);
