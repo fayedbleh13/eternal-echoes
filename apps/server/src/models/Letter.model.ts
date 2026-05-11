@@ -7,6 +7,7 @@ const letterSchema = new mongoose.Schema(
     title: { type: String },
     content: { type: String, required: true },
     mediaUrls: { type: [String], default: [] },
+    youtubeUrl: { type: String },
   },
   { timestamps: true }
 );

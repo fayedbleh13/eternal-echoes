@@ -37,6 +37,7 @@ export const typeDefs = `#graphql
     title: String
     content: String!
     mediaUrls: [String!]!
+    youtubeUrl: String
     createdAt: DateTime
     updatedAt: DateTime
   }
@@ -68,15 +69,26 @@ export const typeDefs = `#graphql
     title: String
     content: String!
     mediaUrls: [String!]
+    youtubeUrl: String
   }
 
   type Mutation {
     createCapsule(input: CreateCapsuleInput!): Capsule!
     lockCapsule(id: ID!): Capsule!
+    sendCapsule(id: ID!): Capsule!
+    updateCapsule(id: ID!, input: UpdateCapsuleInput!): Capsule!
     createLetter(input: CreateLetterInput!): Letter!
     uploadMedia(base64: String!, filename: String!): MediaUpload!
     generateLetterSuggestion(prompt: String!, tone: String): String!
     # Claim a capsule scanned via QR
     claimCapsule(shareToken: String!): Capsule!
+  }
+
+  input UpdateCapsuleInput {
+    title: String
+    description: String
+    recipientName: String
+    recipientEmail: String
+    deliveryDate: DateTime
   }
 `;
