@@ -1,6 +1,7 @@
 import { CapsuleModel } from "../../models/Capsule.model.js";
 import { LetterModel } from "../../models/Letter.model.js";
 import { ApolloContext } from "../../context.js";
+import { sendCapsuleEmail } from "../../services/email.js";
 
 export const capsuleResolvers = {
   Query: {
@@ -45,6 +46,53 @@ export const capsuleResolvers = {
       const capsule = await CapsuleModel.findOneAndUpdate(
         { _id: id, ownerId: context.user.id },
         { status: "SEALED" },
+        { new: true }
+      );
+      if (!capsule) throw new Error("Capsule not found or not yours");
+      return capsule;
+    },
+    sendCapsule: async (_parent: any, { id }: { id: string }, context: ApolloContext) => {
+      if (!context.user) throw new Error("Unauthorized");
+      
+      // Get capsule first to check if it has recipient email
+      const existingCapsule = await CapsuleModel.findOne({
+        _id: id,
+        ownerId: context.user.id,
+        status: { $in: ["DRAFT", "SEALED"] }
+      });
+      
+      if (!existingCapsule) throw new Error("Capsule not found, not yours, or already delivered");
+      
+      // Update status to DELIVERED
+      const capsule = await CapsuleModel.findOneAndUpdate(
+        { _id: id, ownerId: context.user.id },
+        { status: "DELIVERED" },
+        { new: true }
+      );
+      
+      // Send email notification if recipient email exists
+      if (capsule?.recipientEmail) {
+        try {
+          await sendCapsuleEmail({
+            to: capsule.recipientEmail,
+            recipientName: capsule.recipientName,
+            capsuleTitle: capsule.title,
+            shareToken: capsule.shareToken,
+            deliveryDate: capsule.deliveryDate
+          });
+        } catch (emailError) {
+          console.error("Failed to send email notification:", emailError);
+          // Don't fail the mutation if email fails, just log it
+        }
+      }
+      
+      return capsule;
+    },
+    updateCapsule: async (_parent: any, { id, input }: { id: string, input: any }, context: ApolloContext) => {
+      if (!context.user) throw new Error("Unauthorized");
+      const capsule = await CapsuleModel.findOneAndUpdate(
+        { _id: id, ownerId: context.user.id },
+        { ...input },
         { new: true }
       );
       if (!capsule) throw new Error("Capsule not found or not yours");

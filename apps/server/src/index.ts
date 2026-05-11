@@ -10,20 +10,24 @@ import { createContext, ApolloContext } from "./context.js";
 import { typeDefs } from "./schema/typeDefs.js";
 import { resolvers } from "./schema/resolvers/index.js";
 
-dotenv.config();
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// 1. Better Auth Handler (MUST be before express.json())
-app.all("/api/auth/*", toNodeHandler(auth));
-
-// 2. Standard Middleware
+// 1. Standard Middleware
 app.use(cors({
-  origin: [process.env.BETTER_AUTH_URL || "http://localhost:3000", "https://sandbox.embed.apollo.dev"],
+  origin: ["http://localhost:3000", "https://sandbox.embed.apollo.dev"],
   credentials: true
 }));
 app.use(express.json());
+
+// 2. Better Auth Handler
+app.all("/api/auth/*path", toNodeHandler(auth));
 
 const startServer = async () => {
   try {

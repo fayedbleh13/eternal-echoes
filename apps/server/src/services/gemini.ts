@@ -3,11 +3,17 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const apiKey = process.env.GEMINI_API_KEY;
 
 export const generateLetterSuggestion = async (prompt: string, tone: string = "warm and reflective") => {
+  if (!apiKey) {
+    console.error("GEMINI_API_KEY is not set in environment variables");
+    throw new Error("AI service is not configured. Please set GEMINI_API_KEY in your .env file.");
+  }
+
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const systemPrompt = `
       You are "Echo", a thoughtful ghost writer for a digital time capsule app called Eternal Echoes.
@@ -21,8 +27,16 @@ export const generateLetterSuggestion = async (prompt: string, tone: string = "w
     const result = await model.generateContent(systemPrompt);
     const response = await result.response;
     return response.text();
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini suggestion error:", error);
-    throw new Error("Failed to generate letter suggestion");
+    
+    if (error.status === 404) {
+      throw new Error("AI service unavailable. Please check your GEMINI_API_KEY configuration.");
+    }
+    if (error.status === 403) {
+      throw new Error("Invalid API key. Please verify your GEMINI_API_KEY is correct.");
+    }
+    
+    throw new Error("Failed to generate letter suggestion. Please try again later.");
   }
 };
